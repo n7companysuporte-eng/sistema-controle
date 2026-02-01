@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaaS Estoque Simples</title>
+
+<style>
+:root {
+  --roxo: #6c2bd9;
+  --roxo-claro: #f3edff;
+  --preto: #111;
+  --cinza: #666;
+  --branco: #fff;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f6f6f9;
+  color: var(--preto);
+}
+
+header {
+  background: var(--roxo);
+  color: white;
+  padding: 16px;
+  text-align: center;
+  font-weight: 600;
+}
+
+main {
+  padding: 16px;
+  padding-bottom: 90px;
+}
+
+section {
+  display: none;
+}
+
+section.active {
+  display: block;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+input, select, button, textarea {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+}
+
+button {
+  background: var(--roxo);
+  color: white;
+  border: none;
+  font-weight: 600;
+}
+
+button.secondary {
+  background: #eee;
+  color: #333;
+}
+
+.list {
+  font-size: 14px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.item small {
+  color: var(--cinza);
+}
+
+.remove {
+  color: red;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  display: flex;
+  border-top: 1px solid #ddd;
+}
+
+nav button {
+  flex: 1;
+  border-radius: 0;
+  background: none;
+  color: var(--cinza);
+}
+
+nav button.active {
+  color: var(--roxo);
+  font-weight: 700;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+📦 Controle de Estoque
+</header>
+
+<main>
+
+<!-- LANÇAMENTOS -->
+<section id="lancamentos" class="active">
+  <div class="card">
+    <h3>➕ Lançamento</h3>
+
+    <input id="produto" placeholder="Nome do produto">
+    <input id="categoria" placeholder="Categoria">
+    <input id="quantidade" type="number" placeholder="Quantidade">
+
+    <select id="tipo">
+      <option value="entrada">Entrada</option>
+      <option value="saida">Saída</option>
+    </select>
+
+    <button onclick="adicionarLancamento()">Salvar lançamento</button>
+  </div>
+
+  <div class="card">
+    <h3>🕒 Histórico</h3>
+    <div id="historico" class="list"></div>
+  </div>
+</section>
+
+<!-- ESTOQUE -->
+<section id="estoque">
+  <div class="card">
+    <h3>📦 Estoque Atual</h3>
+    <div id="estoqueLista" class="list"></div>
+  </div>
+</section>
+
+<!-- ANALISE -->
+<section id="analise">
+  <div class="card">
+    <h3>📊 Análise por período</h3>
+
+    <input type="date" id="dataInicio">
+    <input type="date" id="dataFim">
+    <input id="categoriaFiltro" placeholder="Categoria (opcional)">
+
+    <button onclick="gerarRelatorio()">Gerar relatório</button>
+  </div>
+
+  <div class="card">
+    <h3>📄 Relatório</h3>
+    <textarea id="relatorio" rows="12"></textarea>
+    <button onclick="enviarWhats()">Enviar para WhatsApp</button>
+  </div>
+</section>
+
+</main>
+
+<nav>
+  <button class="active" onclick="trocarAba('lancamentos', this)">Lançamentos</button>
+  <button onclick="trocarAba('estoque', this)">Estoque</button>
+  <button onclick="trocarAba('analise', this)">Análise</button>
+</nav>
+
+<script>
+let lancamentos = JSON.parse(localStorage.getItem("lancamentos")) || [];
+
+function salvar() {
+  localStorage.setItem("lancamentos", JSON.stringify(lancamentos));
+}
+
+function trocarAba(id, btn) {
+  document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+
+  document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+
+  renderizar();
+}
+
+function adicionarLancamento() {
+  const produto = produtoInput.value;
+  const categoria = categoriaInput.value;
+  const quantidade = Number(quantidadeInput.value);
+  const tipo = tipoSelect.value;
+
+  if (!produto || !categoria || !quantidade) return alert("Preencha tudo");
+
+  lancamentos.push({
+    id: Date.now(),
+    produto,
+    categoria,
+    quantidade,
+    tipo,
+    data: new Date().toLocaleDateString("pt-BR")
+  });
+
+  salvar();
+  produtoInput.value = categoriaInput.value = quantidadeInput.value = "";
+  renderizar();
+}
+
+function remover(id) {
+  lancamentos = lancamentos.filter(l => l.id !== id);
+  salvar();
+  renderizar();
+}
+
+function renderizar() {
+  // Histórico
+  historico.innerHTML = "";
+  lancamentos.slice().reverse().forEach(l => {
+    historico.innerHTML += `
+      <div class="item">
+        <div>
+          <strong>${l.produto}</strong><br>
+          <small>${l.categoria} • ${l.tipo} • ${l.data}</small>
+        </div>
+        <div>
+          ${l.quantidade}
+          <div class="remove" onclick="remover(${l.id})">remover</div>
+        </div>
+      </div>`;
+  });
+
+  // Estoque
+  const estoque = {};
+  lancamentos.forEach(l => {
+    if (!estoque[l.produto]) estoque[l.produto] = {categoria:l.categoria, total:0};
+    estoque[l.produto].total += l.tipo === "entrada" ? l.quantidade : -l.quantidade;
+  });
+
+  estoqueLista.innerHTML = "";
+  Object.keys(estoque).forEach(p => {
+    estoqueLista.innerHTML += `
+      <div class="item">
+        <div>
+          <strong>${p}</strong><br>
+          <small>${estoque[p].categoria}</small>
+        </div>
+        <strong>${estoque[p].total}</strong>
+      </div>`;
+  });
+}
+
+function gerarRelatorio() {
+  const inicio = new Date(dataInicio.value);
+  const fim = new Date(dataFim.value);
+  const cat = categoriaFiltro.value;
+
+  let filtrado = lancamentos.filter(l => {
+    const d = new Date(l.data.split("/").reverse().join("-"));
+    return (!cat || l.categoria === cat) && d >= inicio && d <= fim;
+  });
+
+  let texto = `📦 RELATÓRIO DE ESTOQUE\n\n`;
+  texto += `Período: ${dataInicio.value} a ${dataFim.value}\n`;
+  if (cat) texto += `Categoria: ${cat}\n\n`;
+
+  filtrado.forEach(l => {
+    texto += `${l.data} • ${l.produto} • ${l.tipo} • ${l.quantidade}\n`;
+  });
+
+  relatorio.value = texto;
+}
+
+function enviarWhats() {
+  const texto = encodeURIComponent(relatorio.value);
+  window.open(`https://wa.me/?text=${texto}`, "_blank");
+}
+
+const produtoInput = document.getElementById("produto");
+const categoriaInput = document.getElementById("categoria");
+const quantidadeInput = document.getElementById("quantidade");
+const tipoSelect = document.getElementById("tipo");
+const historico = document.getElementById("historico");
+const estoqueLista = document.getElementById("estoqueLista");
+const dataInicio = document.getElementById("dataInicio");
+const dataFim = document.getElementById("dataFim");
+const categoriaFiltro = document.getElementById("categoriaFiltro");
+const relatorio = document.getElementById("relatorio");
+
+renderizar();
+</script>
+
+</body>
+</html>
